@@ -1,37 +1,23 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-/** ✅ AJAX Handler */
-add_action('wp_ajax_bddc_check','bddc_ajax_check');
-add_action('wp_ajax_nopriv_bddc_check','bddc_ajax_check');
+add_action('wp_ajax_bddc_check_domain', 'bddc_check_domain');
+add_action('wp_ajax_nopriv_bddc_check_domain', 'bddc_check_domain');
 
-function bddc_ajax_check(){
-    $name = sanitize_text_field($_POST['domain']); // user input
-    $exts = get_option('bdc_ext_prices', bddc_default_prices());
+function bddc_check_domain(){
+    check_ajax_referer('bddc_nonce', 'security');
 
-    echo '<div class="multi-results">';
-    foreach($exts as $ext => $data){
-        $full = $name.$ext;
-
-        // ✅ REAL WHOIS CHECK
-        $available = bddc_real_check($full);
-
-        if($available){
-            echo '<div class="result-card available">
-                    <div class="result-left">
-                        <span class="domain-name">🎉 Congratulations! <strong>'.$full.'</strong> is Available for Registration</span>
-                        <span class="domain-price">💰 ৳'.$data['price'].'/year</span>
-                    </div>
-                    <div class="result-right">
-                        <a href="'.$data['url'].'" class="buy-btn">Buy Now</a>
-                    </div>
-                  </div>';
-        } else {
-            echo '<div class="result-card taken">
-                    <span class="domain-name">❌ '.$full.' is already taken</span>
-                  </div>';
-        }
+    $domain = sanitize_text_field($_POST['domain'] ?? '');
+    if(!$domain){
+        wp_send_json_error(['message' => '❌ No domain received']);
     }
-    echo '</div>';
-    wp_die();
+
+    // === আগে DNS Lookup ছিল ===
+    $available = bddc_dns_check($domain);
+
+    $msg = $available 
+        ? "✅ {$domain} is Available" 
+        : "❌ {$domain} is Taken";
+
+    wp_send_json_success(['message'=>$msg]);
 }

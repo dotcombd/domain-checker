@@ -22,3 +22,28 @@ register_activation_hook(__FILE__, function(){
         update_option('bdc_ext_prices', bddc_default_prices());
     }
 });
+
+/** ✅ WHOIS Real Check Function */
+function bddc_real_check($fullDomain){
+    $server = "whois.btcl.net.bd"; 
+    $port = 43;
+
+    $sock = @fsockopen($server, $port);
+    if(!$sock) {
+        return false; // যদি WHOIS সার্ভার কানেক্ট না হয়, Default Taken
+    }
+
+    fwrite($sock, $fullDomain."\r\n");
+    $response = '';
+    while(!feof($sock)) {
+        $response .= fgets($sock, 128);
+    }
+    fclose($sock);
+
+    // BTCL WHOIS যদি "Not Found" বলে → Available
+    if (stripos($response, 'Not Found') !== false) {
+        return true;
+    } else {
+        return false;
+    }
+}

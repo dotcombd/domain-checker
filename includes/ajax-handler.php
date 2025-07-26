@@ -12,12 +12,36 @@ function bddc_check_domain(){
         wp_send_json_error(['message' => '❌ No domain received']);
     }
 
-    // === আগে DNS Lookup ছিল ===
-    $available = bddc_dns_check($domain);
+    // ✅ Real WHOIS Query
+    $available = bddc_whois_check($domain);
 
     $msg = $available 
-        ? "✅ {$domain} is Available" 
-        : "❌ {$domain} is Taken";
+        ? "🎉 Congratulations! ✅ {$domain} is Available for Registration."
+        : "❌ Sorry, {$domain} is Already Taken.";
 
     wp_send_json_success(['message'=>$msg]);
+}
+
+/** ✅ WHOIS Query Function */
+function bddc_whois_check($domain){
+    $whois_server = "whois.btcl.net.bd";
+    $port = 43;
+
+    $fp = @fsockopen($whois_server, $port, $errno, $errstr, 10);
+    if(!$fp){
+        return false; // fallback: assume not available
+    }
+
+    fwrite($fp, $domain."\r\n");
+    $response = '';
+    while(!feof($fp)){
+        $response .= fgets($fp, 128);
+    }
+    fclose($fp);
+
+    // যদি "No entries found" বা ফাঁকা আসে = Available
+    if(stripos($response, 'No entries') !== false || empty(trim($response))){
+        return true;
+    }
+    return false; // otherwise Taken
 }

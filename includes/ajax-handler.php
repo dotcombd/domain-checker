@@ -1,25 +1,28 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+/** ✅ AJAX Handler */
 add_action('wp_ajax_bddc_check','bddc_ajax_check');
 add_action('wp_ajax_nopriv_bddc_check','bddc_ajax_check');
 
 function bddc_ajax_check(){
-    $name = sanitize_text_field($_POST['domain']);
+    $name = sanitize_text_field($_POST['domain']); // user input
     $exts = get_option('bdc_ext_prices', bddc_default_prices());
 
     echo '<div class="multi-results">';
     foreach($exts as $ext => $data){
         $full = $name.$ext;
-        $available = rand(0,1); // ✅ Dummy (later WHOIS/API)
+
+        // ✅ REAL WHOIS CHECK
+        $available = bddc_real_check($full);
 
         if($available){
             echo '<div class="result-card available">
-                    <div class="domain-left">
-                        <span class="domain-name">✅ '.$full.'</span>
+                    <div class="result-left">
+                        <span class="domain-name">🎉 Congratulations! <strong>'.$full.'</strong> is Available for Registration</span>
                         <span class="domain-price">💰 ৳'.$data['price'].'/year</span>
                     </div>
-                    <div class="domain-right">
+                    <div class="result-right">
                         <a href="'.$data['url'].'" class="buy-btn">Buy Now</a>
                     </div>
                   </div>';

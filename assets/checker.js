@@ -1,39 +1,47 @@
-jQuery(document).ready(function($){
+<?php
+if (!defined('ABSPATH')) exit;
 
-    $('#bd-domain-submit').on('click', function(){
+add_action('wp_ajax_bdc_check_domain', 'bdc_check_domain');
+add_action('wp_ajax_nopriv_bdc_check_domain', 'bdc_check_domain');
 
-        let domainName = $('#bd-domain-input').val().trim();
+function bdc_check_domain() {
+    check_ajax_referer('bdc_nonce', 'security');
 
-        if(domainName === ''){
-            $('#bd-domain-result').html('❌ Please enter a domain name.');
-            return;
+    $name = sanitize_text_field($_POST['name'] ?? '');
+    if (!$name) {
+        wp_send_json_error(['message' => '❌ Please enter a domain name']);
+    }
+
+    $extensions = [
+        '.com.bd', '.net.bd', '.org.bd',
+        '.edu.bd', '.gov.bd', '.ac.bd',
+        '.mil.bd', '.info.bd', '.বাংলা'
+    ];
+
+    $results = [];
+    foreach ($extensions as $ext) {
+        $domain = $name . $ext;
+
+        $has_records = false;
+        if (function_exists('dns_get_record')) {
+            $records = @dns_get_record($domain, DNS_A + DNS_AAAA + DNS_CNAME + DNS_MX);
+            if ($records && count($records) > 0) {
+                $has_records = true;
+            }
+        }
+        if (!$has_records && function_exists('checkdnsrr')) {
+            if (checkdnsrr($domain, "A") || checkdnsrr($domain, "MX")) {
+                $has_records = true;
+            }
         }
 
-        // লোডিং দেখাও
-        $('#bd-domain-result').html('<div class="loading">⏳ Checking all BD extensions...</div>');
+        $results[] = [
+            'domain' => $domain,
+            'status' => !$has_records
+                ? "✅ {$domain} is Available"
+                : "❌ {$domain} is Already Registered"
+        ];
+    }
 
-        $.post(bdAjax.ajaxurl, {
-            action: 'bdc_check_domain',
-            name: domainName,
-            security: bdAjax.nonce
-        }, function(response){
-            if(response.success){
-
-                let html = '';
-                response.data.results.forEach(function(item){
-                    html += `<div class="bdc-item">${item.status}</div>`;
-                });
-
-                $('#bd-domain-result').html(html);
-
-            } else {
-                $('#bd-domain-result').html('⚠️ Server error!');
-            }
-        }).fail(function(xhr, status, error){
-            console.error("AJAX Error:", status, error);
-            $('#bd-domain-result').html('⚠️ AJAX Failed. See console.');
-        });
-
-    });
-
-});
+    wp_send_json_success(['results' => $results]);
+}
